@@ -227,7 +227,7 @@
     margin-top:20px;
   }
 
-  input, textarea{
+  input, textarea, select{
     width:100%;
     border:none;
     border-bottom:2px solid #D8DCE8;
@@ -240,8 +240,19 @@
     transition:border-color .2s;
   }
   input::placeholder, textarea::placeholder{ color:#AEB4CC; }
-  input:focus, textarea:focus{ border-color:var(--blue-mid); }
+  input:focus, textarea:focus, select:focus{ border-color:var(--blue-mid); }
   textarea{ resize:vertical; min-height:64px; font-size:14px; }
+  select{
+    appearance:none;
+    -webkit-appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23123C86' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;
+    background-position:right 2px center;
+    background-size:16px;
+    padding-right:24px;
+    cursor:pointer;
+  }
+  select:invalid, select.placeholder{ color:#AEB4CC; }
 
   .hint{ font-size:12px; color:var(--dim); margin-top:4px; }
 
@@ -339,6 +350,17 @@
   .req-song{ font-weight:700; font-size:16px; color:var(--white); }
   .req-time{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--dim); white-space:nowrap; }
   .req-name{ color:var(--dim); font-size:12px; margin-top:6px; }
+  .req-hour{
+    display:inline-block;
+    color:var(--navy);
+    background:var(--gold);
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    font-weight:600;
+    padding:4px 10px;
+    border-radius:20px;
+    margin-top:8px;
+  }
   .req-dedication{
     font-size:13px; font-style:italic; margin-top:8px; color:var(--white); opacity:.85;
     border-left:2px solid var(--gold); padding-left:8px;
@@ -361,9 +383,9 @@
 
   <div class="hero">
     <div class="hero-tag">Universidad UniverMilenium</div>
-    <div class="hero-title">RADIO <span class="accent">MILENIUM</span></div>
+    <div class="hero-title">RADIO <span class="accent">UNIVER</span></div>
     <div class="hero-underline"></div>
-    <p class="hero-sub">Pide tu canción, dedícala, y puede que suene hoy en la cafetería.</p>
+    <p class="hero-sub">Pide tu canción, dedícala, y puede que suene mañana en la cafetería.</p>
   </div>
   <div class="geo-strip"><span></span><span></span><span></span><span></span><span></span></div>
 
@@ -393,6 +415,22 @@
 
       <label for="fDedication">Dedicatoria</label>
       <textarea id="fDedication" placeholder="Para quién va y por qué (opcional)"></textarea>
+
+      <label for="fTime">¿A qué hora te gustaría escucharla?</label>
+      <select id="fTime">
+        <option value="">Cuando se pueda (sin preferencia)</option>
+        <option value="08:00">8:00 AM</option>
+        <option value="09:00">9:00 AM</option>
+        <option value="10:00">10:00 AM</option>
+        <option value="11:00">11:00 AM</option>
+        <option value="12:00">12:00 PM</option>
+        <option value="13:00">1:00 PM</option>
+        <option value="14:00">2:00 PM</option>
+        <option value="15:00">3:00 PM</option>
+        <option value="16:00">4:00 PM</option>
+        <option value="17:00">5:00 PM</option>
+        <option value="18:00">6:00 PM</option>
+      </select>
 
       <label for="fEmail" id="emailLabel">Correo institucional</label>
       <input id="fEmail" type="email" placeholder="tucorreo@univermilenium.edu">
@@ -432,7 +470,8 @@ const REQUIRE_UNIVERSITY_EMAIL = false;
 const UNIVERSITY_EMAIL_DOMAIN = "@univermilenium.edu";
 const ADMIN_CODE = "CyTDRADIO"; // clave del panel del staff — cámbiala
 
-// Your web app's Firebase configuration
+// Pega aquí el "firebaseConfig" que te da la consola de Firebase
+// (Configuración del proyecto → Tus apps → objeto de configuración del SDK)
 const firebaseConfig = {
   apiKey: "AIzaSyDliukgwngUOiMyZrr_6EKTsVRrwq0knvI",
   authDomain: "radio-univer.firebaseapp.com",
@@ -442,6 +481,7 @@ const firebaseConfig = {
   messagingSenderId: "18123348327",
   appId: "1:18123348327:web:d9e6d9e3772f596a56f7c2"
 };
+/* ========================================================= */
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
@@ -498,6 +538,7 @@ document.getElementById("submitBtn").addEventListener("click", async () => {
   const song = document.getElementById("fSong").value.trim();
   const name = document.getElementById("fName").value.trim();
   const dedication = document.getElementById("fDedication").value.trim();
+  const preferredTime = document.getElementById("fTime").value;
   const email = document.getElementById("fEmail").value.trim();
   const statusMsg = document.getElementById("statusMsg");
   const btn = document.getElementById("submitBtn");
@@ -521,7 +562,8 @@ document.getElementById("submitBtn").addEventListener("click", async () => {
 
   const entry = {
     ts: Date.now(),
-    song, name: name || null, dedication: dedication || null, email: email || null
+    song, name: name || null, dedication: dedication || null, email: email || null,
+    preferredTime: preferredTime || null
   };
 
   try{
@@ -532,6 +574,7 @@ document.getElementById("submitBtn").addEventListener("click", async () => {
     document.getElementById("fSong").value = "";
     document.getElementById("fName").value = "";
     document.getElementById("fDedication").value = "";
+    document.getElementById("fTime").value = "";
     document.getElementById("fEmail").value = "";
     await refreshFolio();
   }catch(e){
@@ -599,6 +642,7 @@ async function renderAdminList(){
       </div>
       ${entry.name ? `<div class="req-name">Pedida por: ${escapeHtml(entry.name)}</div>` : ""}
       ${entry.email ? `<div class="req-name">${escapeHtml(entry.email)}</div>` : ""}
+      ${entry.preferredTime ? `<div class="req-hour">🕒 Quiere escucharla a las ${formatHour(entry.preferredTime)}</div>` : ""}
       ${entry.dedication ? `<div class="req-dedication">"${escapeHtml(entry.dedication)}"</div>` : ""}
       <div class="req-actions">
         ${isPicked
@@ -628,6 +672,13 @@ async function renderAdminList(){
       document.getElementById("winnerWrap").classList.remove("show");
     });
   });
+}
+
+function formatHour(t){
+  const [h, m] = t.split(":").map(Number);
+  const period = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${String(m).padStart(2,"0")} ${period}`;
 }
 
 function escapeHtml(str){
